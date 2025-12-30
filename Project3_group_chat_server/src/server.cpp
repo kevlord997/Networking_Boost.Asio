@@ -60,18 +60,18 @@ class session
                                           }
                                       }));
         } else if (ec == error::eof) {
+            decrement_connection();
             auto endpoint = socket().remote_endpoint();
             std::cout << endpoint.address().to_string() << ":"
                       << endpoint.port() << " Disconnected cleanly\n"
                       << "Active connection: " << get_active_connections() << "\n";
-            decrement_connection();
         } else {
+            decrement_connection();
             auto endpoint = socket().remote_endpoint(ec);
             std::cout << endpoint.address().to_string() << ":"
                       << endpoint.port() << " was disconnected unexpectedly\n"
                       << "Read error: " << ec.message() << "\n"
                       << "Active connection: " << get_active_connections() << "\n";
-            decrement_connection();
         }
     }
 
