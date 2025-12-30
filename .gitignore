@@ -11,7 +11,6 @@ Thumbs.db
 # --- Node.js / JavaScript ---
 node_modules/
 dist/
-build/
 .npm/
 
 # --- IDEs and Editors ---
@@ -60,4 +59,8 @@ compile_commands.json
 *.idb
 *.dSYM/
 .vs/
-.vscode/
+
+# Networking Specifics
+*.pem
+*.crt
+*.csr
