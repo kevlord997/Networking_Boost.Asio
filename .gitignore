@@ -1,0 +1,63 @@
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+.cache/
+
+# --- Environment/Secrets ---
+.env
+.env.local
+*.log
+
+# --- Node.js / JavaScript ---
+node_modules/
+dist/
+build/
+.npm/
+
+# --- IDEs and Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Compiled Languages ---
+*.exe
+*.o
+*.so
+*.dll
+
+# --- C++ Build Artifacts ---
+*.o
+*.obj
+*.out
+*.exe
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+
+# --- Build Directories ---
+# Most C++ developers use a folder named 'build' or 'out'
+build/
+Build/
+bin/
+out/
+x64/
+x86/
+
+# --- CMake Artifacts ---
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+
+# --- Debugging & IDEs ---
+*.pdb
+*.idb
+*.dSYM/
+.vs/
+.vscode/
