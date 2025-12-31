@@ -6,7 +6,7 @@
 using boost::asio::ip::tcp;
 using namespace boost::asio;
 
-std::atomic<int> active_connections_{0};  // thread-safe counter
+std::atomic<int> active_connections_{0};
 
 void increment_connection() { ++active_connections_; }
 
@@ -14,7 +14,7 @@ void decrement_connection() { --active_connections_; }
 
 int get_active_connections() { return active_connections_.load(); }
 
-// Session class first (full definition before use)
+// Session class
 class session
       : public std::enable_shared_from_this<session>
 {
@@ -30,9 +30,9 @@ class session
   private:
     void do_read()
     {
-        D_buffer_.resize(1024);
+        buffer_.resize(1024);
         socket_.async_read_some(
-              buffer(D_buffer_),
+              buffer(buffer_),
               bind_executor(strand_,
                             [self = shared_from_this()]
                                   (const boost::system::error_code &ec, std::size_t length) {
@@ -43,13 +43,13 @@ class session
     void handle_read(boost::system::error_code ec, std::size_t length)
     {
         if (!ec) {
-            D_buffer_.resize(length);
+            buffer_.resize(length);
             auto endpoint = socket().remote_endpoint();
-            if (!D_buffer_.empty())
+            if (!buffer_.empty())
                 std::cout << endpoint.address().to_string() << ":"
-                          << endpoint.port() << " : " << D_buffer_.data() << "\n";
+                          << endpoint.port() << " : " << buffer_.data() << "\n";
 
-            async_write(socket_, buffer(D_buffer_),
+            async_write(socket_, buffer(buffer_),
                         bind_executor(strand_,
                                       [self = shared_from_this()]
                                             (const boost::system::error_code &ec, std::size_t) {
@@ -76,8 +76,7 @@ class session
     }
 
     tcp::socket socket_;
-//    std::array<char, 1024> buffer_;
-    std::string D_buffer_;
+    std::vector<char> buffer_;
     strand<any_io_executor> strand_;
 };
 
@@ -106,7 +105,7 @@ class server
               });
     }
 
-    void handle_accept(std::shared_ptr<session> new_session,
+    void handle_accept(const std::shared_ptr<session>& new_session,
                        const boost::system::error_code &ec)
     {
         if (!ec) {
