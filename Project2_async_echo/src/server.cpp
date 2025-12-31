@@ -20,8 +20,7 @@ class server
         start_accept();
     }
 
-    void on_connect()
-    {
+    void on_connect() {
         ++active_connections;
         std::cout << "Active connections: "
                   << active_connections.load() << "\n";
@@ -73,12 +72,12 @@ class session
       : public std::enable_shared_from_this<session>
 {
   public:
-    session(any_io_executor exec, server& srv)
+    session(any_io_executor exec, server &srv)
           : socket_(exec),
             server_(srv),
             strand_(make_strand(exec))
     {
-        server_.on_connect();
+//        server_.on_connect();
     }
 
     ~session()
@@ -152,15 +151,15 @@ void server::start_accept()
 }
 
 void server::handle_accept(const std::shared_ptr<session> &new_session,
-                   const boost::system::error_code &ec)
+                           const boost::system::error_code &ec)
 {
     if (!ec) {
         auto endpoint = new_session->socket().remote_endpoint();
         std::cout << "New client connected: "
                   << endpoint.address().to_string() << ":"
                   << endpoint.port() << "\n";
+        on_connect();
         new_session->start();
-//                std::cout << "New client connected\n";
     } else {
         std::cerr << "Accept error: " << ec.message() << "\n";
     }

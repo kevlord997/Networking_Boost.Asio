@@ -2,26 +2,88 @@
 #include <iostream>
 #include <memory>
 #include <array>
+#include <atomic>
 
 using boost::asio::ip::tcp;
 using namespace boost::asio;
 
-std::atomic<int> active_connections_{0};
+class session;
 
-void increment_connection() { ++active_connections_; }
 
-void decrement_connection() { --active_connections_; }
+// Server class
+class server
+{
+  public:
+    server(io_context &io_ctx, short port)
+          : acceptor_(io_ctx, tcp::endpoint(tcp::v4(), port))
+    {
+        start_accept();
+    }
 
-int get_active_connections() { return active_connections_.load(); }
+    void on_connect() {
+        ++active_connections;
+        std::cout << "Active connections: "
+                  << active_connections.load() << "\n";
+    }
 
-// Session class
+    void on_disconnect()
+    {
+        --active_connections;
+        std::cout << "Active connections: "
+                  << active_connections.load() << "\n";
+    }
+
+
+  private:
+    void start_accept();
+    void handle_accept(const std::shared_ptr<session> &new_session, const boost::system::error_code &ec);
+//    void start_accept()
+//    {
+//        auto new_session = std::make_shared<session>(acceptor_.get_executor(), *this);
+//
+//        acceptor_.async_accept(
+//              new_session->socket(),
+//              [this, new_session](const boost::system::error_code &ec) {
+//                  handle_accept(new_session, ec);
+//              });
+//    }
+
+//    void handle_accept(const std::shared_ptr<session> &new_session,
+//                       const boost::system::error_code &ec)
+//    {
+//        if (!ec) {
+//            auto endpoint = new_session->socket().remote_endpoint();
+//            std::cout << "New client connected: "
+//                      << endpoint.address().to_string() << ":"
+//                      << endpoint.port() << "\n";
+//            new_session->start();
+////                std::cout << "New client connected\n";
+//        } else {
+//            std::cerr << "Accept error: " << ec.message() << "\n";
+//        }
+//        start_accept();  // Accept next
+//    }
+
+    tcp::acceptor acceptor_;
+    std::atomic<int> active_connections{0};
+};
+
 class session
       : public std::enable_shared_from_this<session>
 {
   public:
-    session(any_io_executor exec)
+    session(any_io_executor exec, server &srv)
           : socket_(exec),
-            strand_(make_strand(exec)) {}
+            server_(srv),
+            strand_(make_strand(exec))
+    {
+//        server_.on_connect();
+    }
+
+    ~session()
+    {
+        server_.on_disconnect();
+    }
 
     tcp::socket &socket() { return socket_; }
 
@@ -60,69 +122,49 @@ class session
                                           }
                                       }));
         } else if (ec == error::eof) {
-            decrement_connection();
             auto endpoint = socket().remote_endpoint();
             std::cout << endpoint.address().to_string() << ":"
-                      << endpoint.port() << " Disconnected cleanly\n"
-                      << "Active connection: " << get_active_connections() << "\n";
+                      << endpoint.port() << " Disconnected cleanly\n";
         } else {
-            decrement_connection();
             auto endpoint = socket().remote_endpoint(ec);
             std::cout << endpoint.address().to_string() << ":"
                       << endpoint.port() << " was disconnected unexpectedly\n"
-                      << "Read error: " << ec.message() << "\n"
-                      << "Active connection: " << get_active_connections() << "\n";
+                      << "Read error: " << ec.message() << "\n";
         }
     }
 
     tcp::socket socket_;
+    server &server_;
     std::vector<char> buffer_;
     strand<any_io_executor> strand_;
 };
 
-// Server class
-class server
+void server::start_accept()
 {
-  public:
-    server(io_context &io_ctx, short port)
-          : acceptor_(io_ctx, tcp::endpoint(tcp::v4(), port))
-    {
-        start_accept();
+    auto new_session = std::make_shared<session>(acceptor_.get_executor(), *this);
+
+    acceptor_.async_accept(
+          new_session->socket(),
+          [this, new_session](const boost::system::error_code &ec) {
+              handle_accept(new_session, ec);
+          });
+}
+
+void server::handle_accept(const std::shared_ptr<session> &new_session,
+                           const boost::system::error_code &ec)
+{
+    if (!ec) {
+        auto endpoint = new_session->socket().remote_endpoint();
+        std::cout << "New client connected: "
+                  << endpoint.address().to_string() << ":"
+                  << endpoint.port() << "\n";
+        on_connect();
+        new_session->start();
+    } else {
+        std::cerr << "Accept error: " << ec.message() << "\n";
     }
-
-
-  private:
-    tcp::acceptor acceptor_;
-
-    void start_accept()
-    {
-        auto new_session = std::make_shared<session>(acceptor_.get_executor());
-
-        acceptor_.async_accept(
-              new_session->socket(),
-              [this, new_session](const boost::system::error_code &ec) {
-                  handle_accept(new_session, ec);
-              });
-    }
-
-    void handle_accept(const std::shared_ptr<session>& new_session,
-                       const boost::system::error_code &ec)
-    {
-        if (!ec) {
-            increment_connection();
-            auto endpoint = new_session->socket().remote_endpoint();
-            std::cout << "New client connected: "
-                      << endpoint.address().to_string() << ":"
-                      << endpoint.port() << "\nActive connection: " << get_active_connections() << "\n";
-            new_session->start();
-//                std::cout << "New client connected\n";
-        } else {
-            std::cerr << "Accept error: " << ec.message() << "\n";
-        }
-        start_accept();  // Accept next
-    }
-};
-
+    start_accept();  // Accept next
+}
 
 int main()
 {
@@ -131,8 +173,7 @@ int main()
 
         server s(io_ctx, 12345);
 
-        std::cout << "Async echo server running on port 12345 (Ctrl+C to stop)\n"
-                  << "Active connection: " << get_active_connections() << "\n";
+        std::cout << "Async echo server running on port 12345 (Ctrl+C to stop)\n";
 
         io_ctx.run();
     } catch (std::exception &e) {
